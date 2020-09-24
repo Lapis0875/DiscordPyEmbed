@@ -1,42 +1,28 @@
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
 from .exceptions import *
-from .properties import *
-from discord import Embed, Member, User, ClientUser
-from tools import datetime_tostring
+from .objects import EmbedType
+from .objects import *
+from discord import Member, User, ClientUser, Colour
+from discord import Embed as DiscordEmbed
 
 
 FIELD = Dict[str, Union[str, bool]]
 ANY_USER = Union[User, Member, ClientUser]
 
 
-class EmbedFactory(object):
-    # Log colors
-    default_color: Colour = Colour.from_rgb(236, 202, 179)  # latte color
-    warning_color: Colour = Colour.gold()
-    error_color: Colour = Colour.red()
+class ExtendedEmbed(DiscordEmbed):
 
-    def __init__(self, **attrs):
-        self.target_cls = Embed.__class__
-        self._title: str = (
-            attrs.pop("title")
-            if "title" in attrs and check_title(attrs["title"])
-            else EmptyObject("title", optional=False)
-        )
-        self._type: str = (
-            attrs.pop("type")
-            if "type" in attrs and check_type(attrs["type"])
-            else "rich"
-        )
-        self._description: str = (
-            attrs.pop("description")
-            if "description" in attrs and check_desc(attrs["description"])
-            else EmptyObject("description", optional=True)
-        )
-        self._color: Colour = (
-            attrs.pop("color")
-            if "color" in attrs and check_color(attrs["color"])
-            else self.default_color
-        )
+    def __init__(self,
+                 title: Optional[str] = None,
+                 embed_type: Optional[EmbedType] = None,
+                 description: Optional[str] = None,
+                 color: Optional[Colour] = None,
+                 author: Optional[Union[Dict[str, str], AuthorObject]] = None,
+                 ):
+        self._title: str = process_title(title)
+        self._type: EmbedType = process_type(embed_type)
+        self._description: str = process_desc(description)
+        self._color: Colour = color if type(color) == Colour else Colour.blurple()
         self._author: Dict[str, str] = (
             attrs.pop("author")
             if "author" in attrs and check_author(attrs["author"])
@@ -59,7 +45,7 @@ class EmbedFactory(object):
         )
         self._thumbnail_url: str = (
             attrs.pop("thumbnail_url")
-            if "thumbnail_url" in attrs and check_url(attrs["thumbnail_url"])
+            if "thumbnail_url" in attrs and validate_url(attrs["thumbnail_url"])
             else EmptyObject("thumbnail_url", optional=True)
         )
         self._thumbnail: Union[ImageObject, EmptyObject] = (
@@ -87,11 +73,10 @@ class EmbedFactory(object):
     @title.setter
     def title(self, value: str) -> NoReturn:
         # Type Check & Value Assign
-        if check_title(value):
-            self._title = value
+        self._title = process_title(value)
 
     @property
-    def type(self) -> str:
+    def type(self) -> EmbedType:
         return self._type
 
     @type.setter
@@ -168,7 +153,7 @@ class EmbedFactory(object):
 
     @url.setter
     def url(self, value) -> NoReturn:
-        if check_url(value):
+        if validate_url(value):
             self._url = value
 
     @property
@@ -180,7 +165,7 @@ class EmbedFactory(object):
         # Type Check & Value Assign
         if check_image(value):
             self._image = value
-        elif check_url(value):
+        elif validate_url(value):
             self._image = ImageObject(url=value)
 
     @property
@@ -201,7 +186,7 @@ class EmbedFactory(object):
         # Type Check & Value Assign
         if check_image(value):
             self._image = value
-        elif check_url(value):
+        elif validate_url(value):
             self._image = ImageObject(url=value)
 
     @property
@@ -260,7 +245,7 @@ class EmbedFactory(object):
 
         return embed
 
-    async def build(self) -> Embed:
+    def to_dict(self) -> Dict[str, Any]:
         data: Dict[str, Union[str, Colour, Dict[str, Union[str, bool]], datetime]] = {
             "title": self.title,
             "type": self.type,
