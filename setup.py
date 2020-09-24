@@ -17,13 +17,13 @@ setup(
     # Long description in REAMDME.md
     long_description=open('README.rst').read(),
     # Project url
-    url="https://github.com/Lapis0875/",
+    url="https://github.com/Lapis0875/DiscordPyEmbed",
     # Include module directory 'embed_tools'
     packages=find_packages(),
     # Dependencies : This project use module 'colorlog', so add requirements.
     install_requires=["discord.py>=1.4.1"],
     # Module`s python requirement
-    python_requires=">=3.6",
+    python_requires=">=3.5.3",
     # Keywords about the module
     keywords=["discord api", "discord.py", "discord embed"],
     # Tags about the module
