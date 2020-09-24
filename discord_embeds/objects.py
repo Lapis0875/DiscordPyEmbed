@@ -70,6 +70,10 @@ class EmbedObject(object):
     def __repr__(self) -> str:
         return f"Embed.Object"
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> EmbedObject:
+        raise NotImplementedError("Subclasses should implement the method!")
+
     def to_dict(self) -> dict:
         return {}
 
@@ -82,6 +86,13 @@ class EmptyObject(EmbedObject):
     def __init__(self, property_name: str, optional: bool = False) -> None:
         self.property_name = property_name
         self.optional = optional
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Union[str, bool]]) -> EmptyObject:
+        return cls(
+            property_name=data.get("property_name"),
+            optional=data.get("optional")
+        )
 
     def __str__(self) -> NoReturn:
         if not self.optional:
@@ -111,8 +122,13 @@ class ImageObject(EmbedObject):
     Can be used at 'image', 'thumbnail' property (They share same options)
     """
 
-    def __init__(self, url: str, proxy_url: Optional[str] = None, height: Optional[int] = None,
-                 width: Optional[int] = None):
+    def __init__(
+            self,
+            url: str,
+            proxy_url: Optional[str] = None,
+            height: Optional[int] = None,
+            width: Optional[int] = None
+    ) -> None:
         if validate_url(url):
             self.url = url
         else:
@@ -125,6 +141,12 @@ class ImageObject(EmbedObject):
 
         self.height = height
         self.width = width
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> ImageObject:
+        url = data.get("url")
+
+
 
     def to_dict(self) -> Dict[str, str]:
         result = {
