@@ -145,8 +145,10 @@ class ImageObject(EmbedObject):
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> ImageObject:
         url = data.get("url")
-
-
+        proxy_url = data.get("proxy_url") or None
+        height = data.get("height") or None
+        width = data.get("width") or None
+        return cls(url, proxy_url, height, width)
 
     def to_dict(self) -> Dict[str, str]:
         result = {
