@@ -341,6 +341,7 @@ class ImageObject(EmbedObject):
                 .format(self.url, self.proxy_url, self.height, self.width))
 
 
+# Alias (thumbnail and image objects shares same attributes.)
 ThumbnailObject = ImageObject
 
 
