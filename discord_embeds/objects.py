@@ -1,6 +1,8 @@
 from __future__ import annotations
+
+from abc import abstractmethod
 from .exceptions import *
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from datetime import datetime
 from enum import Enum
 from typing import Union, NoReturn
@@ -8,38 +10,48 @@ from discord import Colour
 import re
 
 """
-Checks
-~~~~~~
-Check values to build proper embed property.
+Embed Structure : https://discord.com/developers/docs/resources/channel#embed-object-embed-structure
+________________________________________________________________________________________________
+Field         | Type                          | Description
+________________________________________________________________________________________________
+title?        | string                        | title of embed
+type?         | string                        | type of embed (always "rich" for webhook embeds)
+description?  | string                        | description of embed
+url?          | string                        | url of embed
+timestamp?    | ISO8601 timestamp             | timestamp of embed content
+color?        | integer                       | color code of the embed
+footer?       | embed footer object           | footer information
+image?        | embed image object            | image information
+thumbnail?    | embed thumbnail object        | thumbnail information
+video?        | embed video object            | video information
+provider?     | embed provider object         | provider information
+author?       | embed author object           | author information
+fields?       | array of embed field objects  | fields information
+________________________________________________________________________________________________
 """
 
-CHECK = Union[bool, NoReturn]
+"""
 
-
-class EmbedType(Enum):
-    RICH = "rich"
-    IMAGE = "image"
-    VIDEO = "video"
-    GIFV = "gifv"
-    ARTICLE = "article"
-    LINK = "link"
-
-    def __contains__(self, item):
-        """
-        Override `in` keyword to check Embed`s type value.
-        :param item:
-        :return:
-        """
-        if type(item) == self.__class__:
-            return super(EmbedType, self).__contains__(item)
-
-        return item in self.__members__
-
+Embed Objects : https://discord.com/developers/docs/resources/channel#embed-object-embed-structure
+___________________________________________________________________________________________________________________________________________________________
+Embed Field Type        | Python Type/Classes               | Reference
+___________________________________________________________________________________________________________________________________________________________
+string                  | str                               | 
+integer                 | int                               | 
+type                    | EmbedType (Enum)                  | https://discord.com/developers/docs/resources/channel#embed-object-embed-types
+ISO8601 timestamp       | datetime (from datetime module)   | 
+embed footer object     | FooterObject                      | https://discord.com/developers/docs/resources/channel#embed-object-embed-footer-structure
+embed image object      | ImageObject                       | https://discord.com/developers/docs/resources/channel#embed-object-embed-image-structure
+embed thumbnail object  | ImageObject                       | https://discord.com/developers/docs/resources/channel#embed-object-embed-thumbnail-structure
+embed video object      | VideoObject                       | https://discord.com/developers/docs/resources/channel#embed-object-embed-video-structure
+embed provider object   | ProviderObject                    | https://discord.com/developers/docs/resources/channel#embed-object-embed-provider-structure
+embed author object     | AuthorObject                      | https://discord.com/developers/docs/resources/channel#embed-object-embed-author-structure
+embed field object      | Field                             | https://discord.com/developers/docs/resources/channel#embed-object-embed-field-structure
+___________________________________________________________________________________________________________________________________________________________
+"""
 
 """
-Embed Limit Document
-~~~~~~~~~~~~~~~~~~~~
-https://discord.com/developers/docs/resources/channel#embed-limits
+Embed Limit Document : https://discord.com/developers/docs/resources/channel#embed-limits
 _______________________________________
 title	     |   256 characters
 description	 |   2048 characters
@@ -57,9 +69,39 @@ def validate_url(value) -> bool:
     return isinstance(value, str) and re.match("^https?", value)
 
 
-"""
-Embed Objects
-"""
+@DeprecationWarning
+class EmbedType(Enum):
+    RICH = "rich"
+    IMAGE = "image"
+    VIDEO = "video"
+    GIFV = "gifv"
+    ARTICLE = "article"
+    LINK = "link"
+
+    def __contains__(self, item):
+        """
+        Override `in` keyword to check Embed`s type value.
+        :param item:
+        :return:
+        """
+        if type(item) == self.__class__:
+            return super(EmbedType, self).__contains__(item)
+
+        # String key check
+        return str(item) in EmbedType.__members__.keys()
+
+    @classmethod
+    def from_value(cls, value: Union[str, EmbedType]) -> Union[EmbedType, NoReturn]:
+        if type(value) == cls:
+            return value
+
+        elif type(value) == str:
+            try:
+                return EmbedType[value.upper()]
+            except KeyError:
+                raise KeyError("Unknown Embed Type {}".format(value))
+
+        raise ValueError("EmbedType enum can be constructed only using string key or EmbedType object.")
 
 
 class EmbedObject(object):
@@ -71,11 +113,18 @@ class EmbedObject(object):
         return f"Embed.Object"
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EmbedObject:
-        raise NotImplementedError("Subclasses should implement the method!")
+    @abstractmethod
+    def from_value(cls, data: Dict[str, Any]):
+        # Type Check
+        if not isinstance(data, dict):
+            raise TypeError("Expected Dict[str, Any], caught {}".format(data.__class__))
+        if cls == EmbedObject:
+            # 'from_dict()' method should be overridden in subclasses.
+            raise NotImplementedError("Subclasses should implement the method!")
 
+    @abstractmethod
     def to_dict(self) -> dict:
-        return {}
+        raise NotImplementedError("Subclasses should implement the method!")
 
 
 class EmptyObject(EmbedObject):
@@ -88,32 +137,151 @@ class EmptyObject(EmbedObject):
         self.optional = optional
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Union[str, bool]]) -> EmptyObject:
+    def from_value(cls, data: Dict[str, Union[str, bool]]) -> EmptyObject:
         return cls(
             property_name=data.get("property_name"),
-            optional=data.get("optional")
+            optional=data.get("optional") or True
         )
 
-    def __str__(self) -> NoReturn:
+    def to_dict(self) -> dict:
+        raise ValueError("Empty object cannot be serialized into json.")
+
+    def __str__(self) -> Union[str, NoReturn]:
         if not self.optional:
             raise ValueError(
-                f"Embed property '{self.property_name}' cannot be empty!"
+                "Embed property '{}' cannot be empty!".format(self.property_name)
             )
         else:
-            return f"{self.property_name} is empty."
+            return "Embed property {} is empty.".format(self.property_name)
 
-    def __repr__(self) -> NoReturn:
-        return f"Embed.Empty"
+    def __repr__(self) -> str:
+        return "Embed.Empty(property_name={},optional={})".format(self.property_name, self.optional)
 
     def __len__(self) -> int:
+        """
+        Tool to check whether property is empty or not.
+        :return: Always 0, because this class always represents empty value.
+        """
         return 0
 
     def __bool__(self) -> bool:
         """
         Tool to check whether property is empty or not.
-        :return: Always True, because this class always represents empty value.
+        :return: Always False, because this class always represents empty value.
         """
         return False
+
+
+class AuthorObject(EmbedObject):
+    """
+    Represents author objects on discord Embed.
+    """
+
+    def __init__(self, name: str, url: Optional[str] = None, icon_url: Optional[str] = None,
+                 proxy_icon_url: Optional[str] = None):
+        if type(name) != str or len(name) > 256:
+            raise ValueError("Author Object cannot have name longer than 256.")
+        self.name = name
+
+        if url is not None and validate_url(url):
+            self.url = url
+        else:
+            raise ValueError("Invalid url!")
+
+        if icon_url is not None and validate_url(icon_url):
+            self.icon_url = icon_url
+        else:
+            raise ValueError("Invalid icon url!")
+
+        if proxy_icon_url is not None and validate_url(proxy_icon_url):
+            self.proxy_icon_url = proxy_icon_url
+        else:
+            raise ValueError("Invalid proxy icon url!")
+
+    @classmethod
+    def from_value(cls, data: Union["AuthorObject", Dict[str, Any]]) -> AuthorObject:
+        # Type Check
+        if not isinstance(data, dict):
+            raise TypeError("Expected Dict[str, Any], caught {}".format(data.__class__))
+        # Attribute Check
+        name = data.get("name")
+        url = data.get("url") or None
+        icon_url = data.get("icon_url") or None
+        proxy_icon_url = data.get("proxy_icon_url") or None
+
+        return cls(
+            name=name,
+            url=url,
+            icon_url=icon_url,
+            proxy_icon_url=proxy_icon_url
+        )
+
+    def to_dict(self) -> Dict[str, str]:
+        result = {
+            "name": self.name
+        }
+        if self.url:
+            result["url"] = self.url
+        if self.icon_url:
+            result["icon_url"] = self.icon_url
+        if self.proxy_icon_url:
+            result["proxy_icon_url"] = self.proxy_icon_url
+        return result
+
+    def __str__(self) -> str:
+        return str(self.to_dict())
+
+    def __repr__(self) -> str:
+        return ("Embed.Author(name={},url={},icon_url={},proxy_icon_url={})"
+                .format(self.name, self.url, self.icon_url, self.proxy_icon_url))
+
+
+class FooterObject(EmbedObject):
+    """
+    Represents footer objects on discord Embed.
+    """
+
+    def __init__(self, text: Optional[str], icon_url: Optional[str] = None,
+                 proxy_icon_url: Optional[str] = None):
+        self.text = text
+        self.icon_url = icon_url if validate_url(icon_url) else None
+        self.proxy_icon_url = proxy_icon_url if validate_url(proxy_icon_url) else None
+
+        if proxy_icon_url is not None and validate_url(proxy_icon_url):
+            self.proxy_icon_url = proxy_icon_url
+
+    @classmethod
+    def from_value(cls, data: Dict[str, Any]) -> FooterObject:
+        # Type Check
+        if not isinstance(data, dict):
+            raise TypeError("Expected Dict[str, Any], caught {}".format(data.__class__))
+        # Attribute Check
+        text = data.get("text")
+        icon_url = data.get("icon_url") or None
+        proxy_icon_url = data.get("proxy_icon_url") or None
+
+        return cls(
+            text=text,
+            icon_url=icon_url,
+            proxy_icon_url=proxy_icon_url
+        )
+
+    def to_dict(self) -> Dict[str, str]:
+        result = {
+            "text": self.text
+        }
+        if self.icon_url:
+            result["icon_url"] = self.icon_url
+        if self.proxy_icon_url:
+            result["proxy_icon_url"] = self.proxy_icon_url
+        return result
+
+    def __str__(self) -> str:
+        return str(self.to_dict())
+
+    def __repr__(self) -> str:
+        return ("Embed.Footer(text={},icon_url={},proxy_icon_url={})"
+                .format(self.text, self.icon_url, self.proxy_icon_url))
 
 
 class ImageObject(EmbedObject):
@@ -143,7 +311,10 @@ class ImageObject(EmbedObject):
         self.width = width
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ImageObject:
+    def from_value(cls, data: Dict[str, Any]) -> ImageObject:
+        # Type Check
+        if not isinstance(data, dict):
+            raise TypeError("Expected Dict[str, Any], caught {}".format(data.__class__))
         url = data.get("url")
         proxy_url = data.get("proxy_url") or None
         height = data.get("height") or None
@@ -166,13 +337,11 @@ class ImageObject(EmbedObject):
         return str(self.to_dict())
 
     def __repr__(self) -> str:
-        return (f"Embed.Image"
-                f"(url={self.url}"
-                f",proxy_url={self.proxy_url}"
-                f",height={self.height}"
-                f",width={self.width})")
+        return ("Embed.Image(url={},proxy_url={},height={},width={}"
+                .format(self.url, self.proxy_url, self.height, self.width))
 
 
+# Alias (thumbnail and image objects shares same attributes.)
 ThumbnailObject = ImageObject
 
 
@@ -190,6 +359,22 @@ class VideoObject(EmbedObject):
         self.height = height
         self.width = width
 
+    @classmethod
+    def from_value(cls, data: Dict[str, Any]) -> VideoObject:
+        # Type Check
+        if not isinstance(data, dict):
+            raise TypeError("Expected Dict[str, Any], caught {}".format(data.__class__))
+
+        # Attribute Check
+        url = data.get("url")
+        height = data.get("height") or None
+        width = data.get("width") or None
+        return cls(
+            url=url,
+            height=height,
+            width=width
+        )
+
     def to_dict(self) -> Dict[str, str]:
         result = {
             "url": self.url
@@ -204,16 +389,35 @@ class VideoObject(EmbedObject):
         return str(self.to_dict())
 
     def __repr__(self) -> str:
-        return f"Embed.Video(url={self.url},height={self.height},width={self.width})"
+        return "Embed.Video(url={},height={},width={})".format(self.url, self.height, self.width)
 
 
 class ProviderObject(EmbedObject):
     """
     Represents provider objects on discord Embed.
     """
+
     def __init__(self, name: str, url: str) -> None:
         self.name = name
         self.url = url
+
+    @classmethod
+    def from_value(cls, data: Dict[str, Any]) -> ProviderObject:
+        # Type Check
+        if not isinstance(data, dict):
+            raise TypeError("Expected Dict[str, Any], caught {}".format(data.__class__))
+
+        # Attribute Check
+        try:
+            name = data.get("name")
+            url = data.get("url")
+            return cls(
+                name=name,
+                url=url
+            )
+
+        except KeyError as e:
+            raise ValueError(f"Invalid data is passed in VideoObject. : {data}. KeyError : {e}")
 
     def to_dict(self) -> Dict[str, str]:
         result = {
@@ -226,90 +430,7 @@ class ProviderObject(EmbedObject):
         return str(self.to_dict())
 
     def __repr__(self) -> str:
-        return f"Embed.Provider(name={self.name},url={self.url})"
-
-
-class AuthorObject(EmbedObject):
-    """
-    Represents author objects on discord Embed.
-    """
-
-    def __init__(self, name: Optional[str] = None, url: Optional[str] = None, icon_url: Optional[str] = None,
-                 proxy_icon_url: Optional[str] = None):
-        if type(name) != str or len(name) > 256:
-            raise ValueError("Author Object cannot have name longer than 256.")
-        self.name = name
-
-        if url is not None and validate_url(url):
-            self.url = url
-        else:
-            raise ValueError("Invalid url!")
-
-        if icon_url is not None and validate_url(icon_url):
-            self.icon_url = icon_url
-        else:
-            raise ValueError("Invalid icon url!")
-
-        if proxy_icon_url is not None and validate_url(proxy_icon_url):
-            self.proxy_icon_url = proxy_icon_url
-        else:
-            raise ValueError("Invalid proxy icon url!")
-
-    def to_dict(self) -> Dict[str, str]:
-        result = {
-            "name": self.name,
-            "url": self.url,
-            "icon_url": self.icon_url,
-            "proxy_icon_url": self.proxy_icon_url
-        }
-        return result
-
-    def __str__(self) -> str:
-        return str(self.to_dict())
-
-    def __repr__(self) -> str:
-        return (f"Embed.Author"
-                f"(name={self.name}"
-                f",url={self.url}"
-                f",icon_url={self.icon_url}"
-                f",proxy_icon_url={self.proxy_icon_url})")
-
-
-class FooterObject(EmbedObject):
-    """
-    Represents footer objects on discord Embed.
-    """
-
-    def __init__(self, text: Optional[str], icon_url: Optional[str],
-                 proxy_icon_url: Optional[str] = None):
-        self.text = text
-
-        if icon_url is not None and validate_url(icon_url):
-            self.icon_url = icon_url
-        else:
-            raise ValueError("Invalid icon url!")
-
-        if proxy_icon_url is not None and validate_url(proxy_icon_url):
-            self.proxy_icon_url = proxy_icon_url
-        else:
-            raise ValueError("Invalid proxy icon url!")
-
-    def to_dict(self) -> Dict[str, str]:
-        result = {
-            "text": self.text,
-            "icon_url": self.icon_url,
-            "proxy_icon_url": self.proxy_icon_url
-        }
-        return result
-
-    def __str__(self) -> str:
-        return str(self.to_dict())
-
-    def __repr__(self) -> str:
-        return (f"Embed.Footer"
-                f"(text={self.text}"
-                f",icon_url={self.icon_url}"
-                f",proxy_icon_url={self.proxy_icon_url})")
+        return "Embed.Provider(name={},url={})".format(self.name, self.url)
 
 
 class Field(EmbedObject):
@@ -320,15 +441,43 @@ class Field(EmbedObject):
     def __init__(self, name: str, value: str,
                  inline: Optional[bool] = False):
 
-        if type(name) != str or len(name) > 256:
+        if not Field.check_name(name):
             raise ValueError("")
         self.name = name
-        if type(value) != str or len(value) > 1024:
+        if not Field.check_value(value):
             raise ValueError("")
         self.value = value
         if type(inline) != bool:
-            raise ValueError("")
+            inline = False
         self.inline = inline
+
+    @classmethod
+    def check_name(cls, name: str) -> bool:
+        return type(name) is str and len(name) <= 256
+
+    @classmethod
+    def check_value(cls, value: str) -> bool:
+        return type(value) is str and len(value) <= 1024
+
+    @classmethod
+    def from_value(cls, data: Union[Field, Dict[str, Union[str, bool]]]) -> Optional[Field]:
+        if isinstance(data, cls):
+            return data
+        if data is None or not isinstance(data, dict):
+            raise TypeError("Expected Dict[str, Union[str, bool]], caught {}".format(data.__class__))
+        try:
+            name = data.get("name")
+            if not cls.check_name(name):
+                raise ValueError("")
+            value = data.get("value")
+            if not cls.check_value(value):
+                raise ValueError("")
+            inline = data.get("inline") or False
+            if type(inline) != bool:
+                raise TypeError("")
+        # Does not except ValueError&TypeError, because it is intentionally raised to indicate error on given data.
+        except KeyError as e:
+            raise ValueError(f"Invalid data is passed in VideoObject. : {data}. KeyError : {e}")
 
     def to_dict(self) -> Dict[str, str]:
         result = {
@@ -342,10 +491,59 @@ class Field(EmbedObject):
         return str(self.to_dict())
 
     def __repr__(self) -> str:
-        return (f"Embed.Field"
-                f"(name={self.name}"
-                f",value={self.value}"
-                f",inline={self.inline})")
+        return ("Embed.Field(name={},value={},inline={})"
+                .format(self.name, self.value, self.inline))
+
+    def __getitem__(self, key) -> Optional[Any]:
+        return getattr(self, key, None)
+
+    def keys(self):
+        def keyIter():
+            yield "name"
+            yield "value"
+            yield "inline"
+        return keyIter()
+
+    def values(self):
+        def valueIter():
+            yield self.name
+            yield self.value
+            yield self.inline
+        return valueIter()
+
+    def items(self):
+        def itemIter():
+            yield "name", self.name
+            yield "value", self.value
+            yield "inline", self.inline
+        return itemIter()
+
+
+@NotImplemented
+class Fields(EmbedObject, list):
+
+    def __init__(self, fields: List[Field]):
+        super().__init__()
+        self.fields = []
+        for field in fields:
+            if not isinstance(field, Field):
+                raise TypeError("field must be instance of Field object")
+            self.fields.append(field)
+
+    @classmethod
+    def from_value(cls, data: Dict[str, Any]) -> Fields:
+        if isinstance(data, cls):
+            return data
+        if isinstance(data, list):
+            return cls(data)
+
+    def to_dict(self) -> dict:
+        return {
+            "fields": str(self.fields)
+        }
+
+    def __getitem__(self, index: int) -> Field:
+        return self.fields[index]
 
 
 """
@@ -366,24 +564,6 @@ def process_title(value: str) -> Union[str, NoReturn]:
     raise ValueError("Embed title must be string object and its length must be lower than 256.")
 
 
-def check_type(value) -> bool:
-    # Type Check
-    return value in EmbedType.__members__
-
-
-def process_type(value: Union[str, EmbedType]) -> Union[EmbedType, NoReturn]:
-    if check_type(value):
-        return value
-
-    if type(value) == str:
-        try:
-            return EmbedType[value.upper()]
-        except KeyError as e:
-            raise KeyError("Unknown Embed Type {}".format(value))
-
-    raise ValueError("Embed type must be EmbedType enum object.")
-
-
 def check_desc(value) -> bool:
     # Type Check
     return type(value) == str and len(value) <= 2048
@@ -393,151 +573,3 @@ def process_desc(value: str) -> str:
     if check_desc(value):
         return value
     raise ValueError("Embed description must be string object and its length must be lower than 2048.")
-
-
-def process_color(value: Union[Colour, str]) -> Union[Colour, NoReturn]:
-    # Type Check
-    if isinstance(value, Colour):
-        return value
-    elif type(value) == str:
-        color = getattr(Colour, value, None)
-        if isinstance(color, classmethod):
-            return color()
-        else:
-            raise ValueError("Invalid color key is passed.")
-    else:
-        raise ValueError("Embed color must be discord.Colour object"
-                         " or string key which indicates specific discord color.")
-
-
-def process_author(value: Union[Dict[str, str], AuthorObject]) -> Union[AuthorObject, NoReturn]:
-    # Type Check
-    if isinstance(value, AuthorObject):
-        return value
-
-    elif isinstance(value, dict):
-        # Attribute Check
-        try:
-            name = value.get("name")
-            url = value.get("url") or None
-            icon_url = value.get("icon_url") or None
-            proxy_icon_url = value.get("proxy_icon_url") or None
-
-            return AuthorObject(
-                name=name,
-                url=url,
-                icon_url=icon_url,
-                proxy_icon_url=proxy_icon_url
-            )
-
-        except KeyError as e:
-            raise ValueError(f"Invalid data is passed in Author Object. : {value}. KeyError : {e}")
-    else:
-        raise TypeError(
-            "Author Object must be a dictionary or mapping-like object which contains string keys and string values,"
-            " or an AuthorObject."
-        )
-
-
-def process_footer(value) -> Union[FooterObject, NoReturn]:
-    # Type Check
-    if isinstance(value, FooterObject):
-        return value
-
-    elif isinstance(value, dict):
-        # Attribute Check
-        try:
-            text = value.get("text")
-            icon_url = value.get("icon_url") or None
-            proxy_icon_url = value.get("proxy_icon_url") or None
-
-            return FooterObject(
-                text=text,
-                icon_url=icon_url,
-                proxy_icon_url=proxy_icon_url
-            )
-
-        except KeyError as e:
-            raise ValueError(f"Invalid data is passed in Footer Object. : {value}. KeyError : {e}")
-    else:
-        raise TypeError(
-            "Footer Object must be a dictionary or mapping-like object which contains string keys and string values,"
-            " or an FooterObject."
-        )
-
-
-def process_image(value: Union[ImageObject, Dict[str, str]]) -> Union[ImageObject, NoReturn]:
-    if isinstance(value, ImageObject):
-        return value
-    elif isinstance(value, dict):
-        # Attribute Check
-        try:
-            url = value.get("url")
-            proxy_url = value.get("proxy_url") or None
-            height = value.get("height") or None
-            width = value.get("width") or None
-
-            return ImageObject(
-                url=url,
-                proxy_url=proxy_url,
-                height=height,
-                width=width
-            )
-
-        except KeyError as e:
-            raise ValueError(f"Invalid data is passed in Image Object. : {value}. KeyError : {e}")
-    else:
-        raise TypeError(
-            "Image Object must be a dictionary or mapping-like object which contains string keys and string values,"
-            " or an ImageObject."
-        )
-
-
-def process_timestamp(value: datetime) -> Union[datetime, NoReturn]:
-    if isinstance(value, datetime):
-        return value
-    else:
-        raise ValueError("Timestamp must be an instance of datetime.")
-
-
-def check_field(value) -> CHECK:
-    if not isinstance(value, dict) or not issubclass(value.__class__, dict):
-        raise TypeError(
-            "New data must be a dictionary or mapping-like object which contains string keys and string values."
-        )
-    try:
-        e_name = value.get("name")
-        if type(e_name) != str or len(e_name) > 256:
-            raise ValueError("")
-        e_value = value.get("value")
-        if type(e_value) != str or len(e_value) > 1024:
-            raise ValueError
-        e_inline = value.get("inline") or None
-    except KeyError:
-        raise InvalidFieldError(
-            invalid_field=value
-        )
-    except ValueError as e:
-        # Catch embed limit error and throw it to outside.
-        raise e
-
-    # All check finished. Return True.
-    return True
-
-
-def check_fields(value) -> CHECK:
-    if not isinstance(value, list) or not issubclass(value.__class__, list):
-        raise TypeError("New data must be a dictionary which contains string keys and string values.")
-
-    if len(value) > 25:
-        raise ValueError("Embed fields limit : the number of fields must be lower than 25.")
-
-    for field in value:
-        check = check_field(field)
-        if not check:
-            raise InvalidFieldError(
-                invalid_field=field
-            )
-
-    # All check finished. Return True.
-    return True

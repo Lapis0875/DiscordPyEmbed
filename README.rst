@@ -27,7 +27,17 @@ discord.py-embed
 [Example]
 
 .. code-block:: python
-
+  from discord import Client
   from discord_embeds import ExtendedEmbed
+
+  client = Client()
+
+  @client.event
+  async def on_message(msg):
+      if msg.content == "Hello!":
+          embed = ExtendedEmbed(
+
+          )
+
 
 
