@@ -60,14 +60,14 @@ class Embed(DiscordEmbed):
                 raise ValueError("Invalid color key is passed.")
 
         self._timestamp: datetime = timestamp if type(timestamp) == datetime else None
-        self._author: AuthorObject = author if isinstance(author, AuthorObject) else AuthorObject.from_value(author)
-        self._footer: FooterObject = footer if isinstance(footer, FooterObject) else FooterObject.from_value(footer)
-        self._thumbnail: ImageObject = thumbnail if isinstance(thumbnail, ImageObject) else ImageObject.from_value(
+        self._author: AuthorObject = author if isinstance(author, AuthorObject) else AuthorObject.fromDict(author)
+        self._footer: FooterObject = footer if isinstance(footer, FooterObject) else FooterObject.fromDict(footer)
+        self._thumbnail: ImageObject = thumbnail if isinstance(thumbnail, ImageObject) else ImageObject.fromDict(
             thumbnail)
-        self._image: ImageObject = image if isinstance(image, ImageObject) else ImageObject.from_value(image)
+        self._image: ImageObject = image if isinstance(image, ImageObject) else ImageObject.fromDict(image)
         self._provider: ProviderObject = provider if isinstance(provider,
-                                                                ProviderObject) else ProviderObject.from_value(provider)
-        self._fields: Fields = Fields.from_value(fields)
+                                                                ProviderObject) else ProviderObject.fromDict(provider)
+        self._fields: Fields = Fields.fromDict(fields)
 
     @property
     def title(self) -> str:
@@ -114,7 +114,7 @@ class Embed(DiscordEmbed):
 
     @author.setter
     def author(self, value: AuthorObject) -> NoReturn:
-        self._author = AuthorObject.from_value(value)
+        self._author = AuthorObject.fromDict(value)
 
     @property
     def footer(self) -> Dict[str, str]:
@@ -122,7 +122,7 @@ class Embed(DiscordEmbed):
 
     @footer.setter
     def footer(self, value: Dict[str, str]) -> NoReturn:
-        self._footer = FooterObject.from_value(value)
+        self._footer = FooterObject.fromDict(value)
 
     @property
     def timestamp(self) -> datetime:
@@ -152,7 +152,7 @@ class Embed(DiscordEmbed):
     def thumbnail(self, value: Union[ImageObject, str]) -> NoReturn:
         # Type Check & Value Assign
         try:
-            self._thumbnail = ImageObject.from_value(value)
+            self._thumbnail = ImageObject.fromDict(value)
         except:
             if validate_url(value):
                 self._thumbnail = ImageObject(url=value)
@@ -167,7 +167,7 @@ class Embed(DiscordEmbed):
     def image(self, value: Union[ImageObject, str]) -> NoReturn:
         # Type Check & Value Assign
         try:
-            self._image = ImageObject.from_value(value)
+            self._image = ImageObject.fromDict(value)
         except:
             if validate_url(value):
                 self._image = ImageObject(url=value)
@@ -181,7 +181,7 @@ class Embed(DiscordEmbed):
     @fields.setter
     def fields(self, value: List[Field]) -> NoReturn:
         # Type Check
-        self._fields = Fields.from_value(value)
+        self._fields = Fields.fromDict(value)
 
         if check_fields(value):
             # Value Assign
@@ -195,7 +195,7 @@ class Embed(DiscordEmbed):
 
     async def add_fields(self, *fields: Field) -> NoReturn:
         for field in fields:
-            field = Field.from_value(field)
+            field = Field.fromDict(field)
             # Instead of appending `field` itself, append values using "name" and "value" key
             # to prevent unexpected key in field.
             await self.add_field(
@@ -239,7 +239,7 @@ class Embed(DiscordEmbed):
         if self.description:
             data["description"] = self.description
         if self.author:
-            data["author"] = self.author.to_dict()
+            data["author"] = self.author.toDict()
         if self.footer:
             data["footer"] = self.footer.to_dict()
         if self.timestamp:
@@ -249,7 +249,7 @@ class Embed(DiscordEmbed):
         if self.thumbnail:
             data["thumbnail"]
         if self.image:
-            data["image"] = self.image.to_dict()
+            data["image"] = self.image.toDict()
         return data
 
     @classmethod
@@ -281,8 +281,8 @@ class Embed(DiscordEmbed):
             f"title={self.title}\n"
             f"description={self.description}\n"
             f"author={self.author}\n"
-            f"thumbnail={self.thumbnail.to_dict()}\n"
-            f"image={self.image.to_dict()}\n"
+            f"thumbnail={self.thumbnail.toDict()}\n"
+            f"image={self.image.toDict()}\n"
             f"footer={self.footer}\n"
             f"fields=[\n")
         text += '  \n'.join(str(field) for field in self.fields) + "\n]"

@@ -114,7 +114,7 @@ class EmbedObject(object):
 
     @classmethod
     @abstractmethod
-    def from_value(cls, data: Dict[str, Any]):
+    def fromDict(cls, data: Dict[str, Any]):
         # Type Check
         if not isinstance(data, dict):
             raise TypeError("Expected Dict[str, Any], caught {}".format(data.__class__))
@@ -123,27 +123,26 @@ class EmbedObject(object):
             raise NotImplementedError("Subclasses should implement the method!")
 
     @abstractmethod
-    def to_dict(self) -> dict:
+    def toDict(self) -> dict:
         raise NotImplementedError("Subclasses should implement the method!")
 
 
+@DeprecationWarning
 class EmptyObject(EmbedObject):
-    """
-    Represents `empty` value in embed property.
-    """
+    """Represents `empty` value in embed property."""
 
     def __init__(self, property_name: str, optional: bool = False) -> None:
         self.property_name = property_name
         self.optional = optional
 
     @classmethod
-    def from_value(cls, data: Dict[str, Union[str, bool]]) -> EmptyObject:
+    def fromDict(cls, data: Dict[str, Union[str, bool]]) -> EmptyObject:
         return cls(
             property_name=data.get("property_name"),
             optional=data.get("optional") or True
         )
 
-    def to_dict(self) -> dict:
+    def toDict(self) -> dict:
         raise ValueError("Empty object cannot be serialized into json.")
 
     def __str__(self) -> Union[str, NoReturn]:
@@ -173,8 +172,8 @@ class EmptyObject(EmbedObject):
 
 
 class AuthorObject(EmbedObject):
-    """
-    Represents author objects on discord Embed.
+    """Represents author objects on discord Embed.
+
     """
 
     def __init__(self, name: str, url: Optional[str] = None, icon_url: Optional[str] = None,
@@ -199,7 +198,7 @@ class AuthorObject(EmbedObject):
             raise ValueError("Invalid proxy icon url!")
 
     @classmethod
-    def from_value(cls, data: Union["AuthorObject", Dict[str, Any]]) -> AuthorObject:
+    def fromDict(cls, data: Union["AuthorObject", Dict[str, Any]]) -> AuthorObject:
         # Type Check
         if not isinstance(data, dict):
             raise TypeError("Expected Dict[str, Any], caught {}".format(data.__class__))
@@ -216,7 +215,7 @@ class AuthorObject(EmbedObject):
             proxy_icon_url=proxy_icon_url
         )
 
-    def to_dict(self) -> Dict[str, str]:
+    def toDict(self) -> Dict[str, str]:
         result = {
             "name": self.name
         }
@@ -229,7 +228,7 @@ class AuthorObject(EmbedObject):
         return result
 
     def __str__(self) -> str:
-        return str(self.to_dict())
+        return str(self.toDict())
 
     def __repr__(self) -> str:
         return ("Embed.Author(name={},url={},icon_url={},proxy_icon_url={})"
@@ -251,7 +250,7 @@ class FooterObject(EmbedObject):
             self.proxy_icon_url = proxy_icon_url
 
     @classmethod
-    def from_value(cls, data: Dict[str, Any]) -> FooterObject:
+    def fromDict(cls, data: Dict[str, Any]) -> FooterObject:
         # Type Check
         if not isinstance(data, dict):
             raise TypeError("Expected Dict[str, Any], caught {}".format(data.__class__))
@@ -266,7 +265,7 @@ class FooterObject(EmbedObject):
             proxy_icon_url=proxy_icon_url
         )
 
-    def to_dict(self) -> Dict[str, str]:
+    def toDict(self) -> Dict[str, str]:
         result = {
             "text": self.text
         }
@@ -277,7 +276,7 @@ class FooterObject(EmbedObject):
         return result
 
     def __str__(self) -> str:
-        return str(self.to_dict())
+        return str(self.toDict())
 
     def __repr__(self) -> str:
         return ("Embed.Footer(text={},icon_url={},proxy_icon_url={})"
@@ -311,7 +310,7 @@ class ImageObject(EmbedObject):
         self.width = width
 
     @classmethod
-    def from_value(cls, data: Dict[str, Any]) -> ImageObject:
+    def fromDict(cls, data: Dict[str, Any]) -> ImageObject:
         # Type Check
         if not isinstance(data, dict):
             raise TypeError("Expected Dict[str, Any], caught {}".format(data.__class__))
@@ -321,7 +320,7 @@ class ImageObject(EmbedObject):
         width = data.get("width") or None
         return cls(url, proxy_url, height, width)
 
-    def to_dict(self) -> Dict[str, str]:
+    def toDict(self) -> Dict[str, str]:
         result = {
             "url": self.url
         }
@@ -334,7 +333,7 @@ class ImageObject(EmbedObject):
         return result
 
     def __str__(self) -> str:
-        return str(self.to_dict())
+        return str(self.toDict())
 
     def __repr__(self) -> str:
         return ("Embed.Image(url={},proxy_url={},height={},width={}"
@@ -360,7 +359,7 @@ class VideoObject(EmbedObject):
         self.width = width
 
     @classmethod
-    def from_value(cls, data: Dict[str, Any]) -> VideoObject:
+    def fromDict(cls, data: Dict[str, Any]) -> VideoObject:
         # Type Check
         if not isinstance(data, dict):
             raise TypeError("Expected Dict[str, Any], caught {}".format(data.__class__))
@@ -375,7 +374,7 @@ class VideoObject(EmbedObject):
             width=width
         )
 
-    def to_dict(self) -> Dict[str, str]:
+    def toDict(self) -> Dict[str, str]:
         result = {
             "url": self.url
         }
@@ -386,7 +385,7 @@ class VideoObject(EmbedObject):
         return result
 
     def __str__(self) -> str:
-        return str(self.to_dict())
+        return str(self.toDict())
 
     def __repr__(self) -> str:
         return "Embed.Video(url={},height={},width={})".format(self.url, self.height, self.width)
@@ -402,7 +401,7 @@ class ProviderObject(EmbedObject):
         self.url = url
 
     @classmethod
-    def from_value(cls, data: Dict[str, Any]) -> ProviderObject:
+    def fromDict(cls, data: Dict[str, Any]) -> ProviderObject:
         # Type Check
         if not isinstance(data, dict):
             raise TypeError("Expected Dict[str, Any], caught {}".format(data.__class__))
@@ -419,7 +418,7 @@ class ProviderObject(EmbedObject):
         except KeyError as e:
             raise ValueError(f"Invalid data is passed in VideoObject. : {data}. KeyError : {e}")
 
-    def to_dict(self) -> Dict[str, str]:
+    def toDict(self) -> Dict[str, str]:
         result = {
             "name": self.name,
             "url": self.url
@@ -427,7 +426,7 @@ class ProviderObject(EmbedObject):
         return result
 
     def __str__(self) -> str:
-        return str(self.to_dict())
+        return str(self.toDict())
 
     def __repr__(self) -> str:
         return "Embed.Provider(name={},url={})".format(self.name, self.url)
@@ -460,7 +459,7 @@ class Field(EmbedObject):
         return type(value) is str and len(value) <= 1024
 
     @classmethod
-    def from_value(cls, data: Union[Field, Dict[str, Union[str, bool]]]) -> Optional[Field]:
+    def fromDict(cls, data: Union[Field, Dict[str, Union[str, bool]]]) -> Optional[Field]:
         if isinstance(data, cls):
             return data
         if data is None or not isinstance(data, dict):
@@ -479,7 +478,7 @@ class Field(EmbedObject):
         except KeyError as e:
             raise ValueError(f"Invalid data is passed in VideoObject. : {data}. KeyError : {e}")
 
-    def to_dict(self) -> Dict[str, str]:
+    def toDict(self) -> Dict[str, str]:
         result = {
             "name": self.name,
             "value": self.value,
@@ -488,7 +487,7 @@ class Field(EmbedObject):
         return result
 
     def __str__(self) -> str:
-        return str(self.to_dict())
+        return str(self.toDict())
 
     def __repr__(self) -> str:
         return ("Embed.Field(name={},value={},inline={})"
@@ -531,13 +530,13 @@ class Fields(EmbedObject, list):
             self.fields.append(field)
 
     @classmethod
-    def from_value(cls, data: Dict[str, Any]) -> Fields:
+    def fromDict(cls, data: Dict[str, Any]) -> Fields:
         if isinstance(data, cls):
             return data
         if isinstance(data, list):
             return cls(data)
 
-    def to_dict(self) -> dict:
+    def toDict(self) -> dict:
         return {
             "fields": str(self.fields)
         }
